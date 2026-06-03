@@ -51,7 +51,7 @@ def get_spectra(random='Normal'):
     return sim_power_spectra(sim_H0, sim_ombh2, sim_omch2, sim_tau, sim_As, sim_ns)
 
 # =============================================================================
-# CONFIGURACIÓN LITEBIRD (Tu instrumento)
+# CONFIGURACIÓN LITEBIRD (Instrumento)
 # =============================================================================
 LiteBIRD_Instrument = {
     'frequencies' : np.array([40, 50, 60, 68, 78, 89, 100, 119, 140, 166, 195, 235, 280, 337, 402]), 
@@ -113,7 +113,7 @@ class Spectra:
         self.isDl = False
         self.isCl = True
 
-# Definimos nuestra propia clase para cargar tus FITS
+# Definir nuestra propia clase para cargar los FITS
 class MapaLocalEstandard:
     def __init__(self, ruta_fits, nside):
         self.nside = nside
@@ -122,12 +122,12 @@ class MapaLocalEstandard:
         
     def get_emission(self, freq, weights=None):
         # Esta es la función que PySM3 llama internamente.
-        # Devolvemos el mapa con la unidad uK_CMB.
-        # Añadimos una dimensión extra al principio porque PySM espera [I, Q, U]
-        # y nosotros solo tenemos Intensidad (I).
+        # Devuelve el mapa con la unidad uK_CMB.
+        # Añade una dimensión extra al principio porque PySM espera [I, Q, U]
+        # y solo tenemos Intensidad (I).
         return np.array([self.mapa]) * u.uK_CMB
 
-# Creamos los objetos con la ruta a los archivos reducidos previamente
+# Crear los objetos con la ruta a los archivos reducidos previamente
 rg1_final  = MapaLocalEstandard("radio_n512.fits", nside=nside)
 tsz1_final = MapaLocalEstandard("tsz_n512.fits", nside=nside)
 ksz1_final = MapaLocalEstandard("ksz_n512.fits", nside=nside)
@@ -164,10 +164,10 @@ def sim_CMB(seed, nside=nside, sky=sky_config, rot_custom=None):
     # get_spectra() devuelve Dl = l(l+1)Cl / 2pi. synfast necesita Cl.
     dl_planck = get_spectra() # Dl en uK^2
     ls = np.arange(2, len(dl_planck) + 2)
-    # Convertimos Dl a Cl: Cl = Dl * 2pi / (l*(l+1))
+    # Convertir Dl a Cl: Cl = Dl * 2pi / (l*(l+1))
     cl_planck = dl_planck[:, 0] * 2 * np.pi / (ls * (ls + 1))
     
-    # Añadimos los multipolos 0 y 1 (monopolo y dipolo) como 0
+    # Añadir los multipolos 0 y 1 (monopolo y dipolo) como 0
     cl_input = np.concatenate(([0, 0], cl_planck))
 
     # Generar el mapa esférico en uK (Valores típicos +- 300 uK)
@@ -188,15 +188,15 @@ def sim_CMB(seed, nside=nside, sky=sky_config, rot_custom=None):
                                       reso=reso_arcmin, no_plot=True, return_projected_map=True)
         
         # Proyectar cada Foreground por separado
-        # Mapeamos cada preset de PySM a nuestro nombre en el diccionario comps
+        # Mapear cada preset de PySM a su nombre en el diccionario comps
         nombres_mapeo = ['dust', 'sync', 'ame', 'free', 'co', 'radio', 'tsz', 'ksz', 'cib']
         for j, comp_obj in enumerate(sky.components):
             name = nombres_mapeo[j]
-            # Extraemos la emisión de la esfera
+            # Extraer la emisión de la esfera
             esfera_fg = comp_obj.get_emission(f_ghz).to(u.uK_CMB, equiv)[0].value
-            # Aplicamos suavizado
+            # Aplicar suavizado
             esfera_suave = hp.smoothing(esfera_fg, fwhm=fwhm_rad, verbose=False)
-            # Proyectamos
+            # Proyectar
             comps[name][i] = hp.gnomview(esfera_suave, rot=rot_random, xsize=nside, 
                                          reso=reso_arcmin, no_plot=True, return_projected_map=True)
         
@@ -205,18 +205,16 @@ def sim_CMB(seed, nside=nside, sky=sky_config, rot_custom=None):
         comps['noise'][i] = np.random.normal(0, sigma_noise, size=(nside, nside))
     
     # Generar el Target (El CMB puro sin ruido ni galaxia)
-    #beam_target_arcmin = 30.0
-    #fwhm_target_rad = np.radians(beam_target_arcmin / 60)
     target_suave_esf = hp.smoothing(mapa_cmb_esf, fwhm=fwhm_rad, verbose=False)
     m_pure_target = hp.gnomview(target_suave_esf, rot=rot_random, xsize=nside, 
                                 reso=reso_arcmin, no_plot=True, 
                                 return_projected_map=True).astype(np.float32)
     m_pure_target -= np.mean(m_pure_target)
-    # Añadimos la dimensión de canal (1, nside, nside)
+    # Añadir la dimensión de canal (1, nside, nside)
     m_pure_target = m_pure_target[np.newaxis, ...]
     # Suma Total de componentes (Input X)
     m_in = np.sum(list(comps.values()), axis=0).astype(np.float32)
-    # Normalizamos cada uno de los 15 canales del input
+    # Normalizar cada uno de los 15 canales del input
     std_target = np.std(m_pure_target)
     m_pure_target /= (std_target + 1e-8) # Ahora el target tiene std=1
     for i in range(m_in.shape[0]):
